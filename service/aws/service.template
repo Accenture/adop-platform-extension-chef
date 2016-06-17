@@ -1,0 +1,223 @@
+{
+    "Description": "EC2 platform extension template for ADOP/B",
+    "Mappings": {
+        "RegionMap": {
+            "eu-west-1": {
+                "AMI": "ami-7abd0209"
+            },
+            "us-west-1": {
+                "AMI": "ami-af4333cf"
+            }
+        }
+    },
+    "Outputs": {
+        "EC2InstancePrivateIp": {
+            "Description": "EC2Instance Private IP",
+            "Value": {
+                "Fn::GetAtt": [
+                    "EC2Instance",
+                    "PrivateIp"
+                ]
+            }
+        },
+        "EC2InstanceID" : {
+            "Description": "EC2Instance ID",  
+            "Value" : { "Ref" : "EC2Instance" }
+        }
+    },
+    "Parameters": {
+        "EnvironmentName": {
+            "Description": "The name of the EC2 instance being created",
+            "Type": "String"
+        },
+        "EnvironmentSubnet": {
+            "Description": "The ID of the subnet to create the instance in",
+            "Type": "AWS::EC2::Subnet::Id"
+        },
+        "InstanceType": {
+            "Default": "t2.large",
+            "Description": "EC2 instance type",
+            "Type": "String"
+        },
+        "KeyName": {
+            "Description": "Key-pair name to use.",
+            "Type": "AWS::EC2::KeyPair::KeyName"
+        },
+        "VPCId": {
+            "Description": "VPC ID where the instance will be created",
+            "Type": "AWS::EC2::VPC::Id"
+        },
+        "InboundCIDR": {
+            "Default": "10.0.0.0/24",
+            "Description": "Inbound Security Group CIDR Block",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "DefaultSecurityGroup": {
+            "Properties": {
+                "GroupDescription": "Enabling access to all IPs and below listed ports",
+                "SecurityGroupEgress": [
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "FromPort": "0",
+                        "IpProtocol": "tcp",
+                        "ToPort": "65535"
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "FromPort": "0",
+                        "IpProtocol": "udp",
+                        "ToPort": "65535"
+                    }
+                ],
+                "SecurityGroupIngress": [
+                    {
+                        "CidrIp": {
+                            "Ref": "InboundCIDR"
+                        },
+                        "FromPort": "22",
+                        "IpProtocol": "tcp",
+                        "ToPort": "22"
+                    },
+                    {
+                        "CidrIp": {
+                            "Ref": "InboundCIDR"
+                        },
+                        "FromPort": "80",
+                        "IpProtocol": "tcp",
+                        "ToPort": "80"
+                    },
+                    {
+                        "CidrIp":  {
+                            "Ref": "InboundCIDR"
+                        },
+                        "FromPort": "443",
+                        "IpProtocol": "tcp",
+                        "ToPort": "443"
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "VPCId"
+                }
+            },
+            "Type": "AWS::EC2::SecurityGroup"
+        },
+        "EC2Instance": {
+            "Properties": {
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/sda1",
+                        "Ebs": {
+                            "DeleteOnTermination": "true",
+                            "VolumeSize": 30
+                        }
+                    }
+                ],
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },
+                "InstanceType": {
+                    "Ref": "InstanceType"
+                },
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "NetworkInterfaces": [
+                    {
+                        "AssociatePublicIpAddress": "true",
+                        "DeleteOnTermination": "true",
+                        "DeviceIndex": "0",
+                        "GroupSet": [
+                            {
+                                "Ref": "DefaultSecurityGroup"
+                            }
+                        ],
+                        "SubnetId": {
+                            "Ref": "EnvironmentSubnet"
+                        }
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "EnvironmentName"
+                        }
+                    },
+                    {
+                        "Key": "Node",
+                        "Value": "Chef-server"
+                    },
+                    {
+                        "Key": "createdFor",
+                        "Value": {
+                            "Ref": "EnvironmentName"
+                        }
+                    }
+                ],
+                "UserData": {
+                "Fn::Base64": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "#!/bin/bash\n",
+                    "export LOCAL_IPv4=$(curl http://instance-data/latest/meta-data/local-ipv4)\n",
+                    "yum -y install wget make \n",
+                    "yum -y install epel-release\n",
+                    "yum -y install python-pip\n",
+                    "pip install pystache\n",
+                    "pip install argparse\n",
+                    "pip install python-daemon\n",
+                    "cd /opt\n",
+                    "curl -O https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+                    "tar -xvpf aws-cfn-bootstrap-latest.tar.gz\n",
+                    "cd aws-cfn-bootstrap-*\n",
+                    "python setup.py build\n",
+                    "python setup.py install\n",
+                    "cd /home/centos\n",
+                    "wget https://packages.chef.io/stable/el/7/chef-server-core-12.6.0-1.el7.x86_64.rpm\n",
+                    "yum -y install /home/centos/chef-server-core-12.6.0-1.el7.x86_64.rpm\n",
+                    "chef-server-ctl reconfigure\n",
+                    "chef-server-ctl user-create admin Admin User admin@example.com 'admin@1' --filename /home/centos/admin.pem\n",
+                    "chef-server-ctl org-create devops 'DevOps' --association_user admin --filename /home/centos/devops-validator.pem\n",
+                    "chef-server-ctl install chef-manage\n",
+                    "chef-server-ctl reconfigure\n",
+                    "chef-manage-ctl reconfigure --accept-license\n",
+                    "wget https://packages.chef.io/stable/el/6/opscode-push-jobs-server-1.1.6-1.x86_64.rpm\n",
+                    "yum -y install /home/centos/opscode-push-jobs-server-1.1.6-1.x86_64.rpm\n",
+                    "chef-server-ctl install opscode-push-jobs-server\n",
+                    "chef-server-ctl reconfigure\n",
+                    "opscode-push-jobs-server-ctl reconfigure\n",
+                    "chef-server-ctl install opscode-reporting\n",
+                    "chef-server-ctl reconfigure\n",
+                    "opscode-reporting-ctl reconfigure --accept-license\n",
+                    "chef-server-ctl reconfigure\n",
+                    "until [[ $(curl -I -s http://$LOCAL_IPv4|head -n 1|cut -d$' ' -f2) == 301 ]]; do echo \"Chef still not available, sleeping for 5s\"; sleep 5; done\n",
+                    "cfn-signal -e $? -r \"Stack setup complete\" '", { "Ref" : "ControllerHandle" }, "'\n"
+                  ]
+                ]   
+                }
+                }
+            },
+            "Type": "AWS::EC2::Instance"
+        },
+        "ControllerHandle" : {
+            "Type" : "AWS::CloudFormation::WaitConditionHandle"
+            },
+        "ControllerCondition" : {
+            "Type" : "AWS::CloudFormation::WaitCondition",
+            "DependsOn" : "EC2Instance",
+            "Properties" : {
+                "Handle" : { "Ref" : "ControllerHandle" },
+                "Timeout" : "1500"
+            }
+        }
+    }
+}
