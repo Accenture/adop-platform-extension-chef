@@ -1,0 +1,29 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Stmt1468092324000",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:DescribeStacks",
+                "cloudformation:CreateStack",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeKeyPairs",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeInstances",
+                "ec2:DescribeSecurityGroups",
+                "ec2:RunInstances",
+                "ec2:CreateSecurityGroup",
+                "ec2:createTags",
+                "ec2:AuthorizeSecurityGroupIngress",
+                "ec2:AuthorizeSecurityGroupEgress",
+                "ec2:RevokeSecurityGroupEgress",
+                "aws-marketplace:ViewSubscriptions",
+                "aws-marketplace:Subscribe"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
