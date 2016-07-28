@@ -19,11 +19,19 @@ Follow the platform extension loading instructions below:
 services/<the hosting provider where you want the platform extension to be loaded>/README.md
 ```
 
-Once the platform extensino has been loaded, the chef server will be proxied over port 443 from Nginx and is accessible over HTTPS. 
+# Accessing your Chef server
+The URL to access the chef server will be in the following format:
+``` https://EC2-Service-Extension-<extension-number>.<ADOP-public-IP>.xip.io/ ```
+
+Once the platform extension has been loaded, the chef server will be proxied over port 443 from Nginx and is accessible over HTTPS.
 
 The default access credentials for the chef server web UI (once you have loaded the platform extension) are as follows:
 
  * username: admin
  * password: admin@1
+ 
+The chef server is designed to be used alongside the [ADOP chef cartridge](https://github.com/Accenture/adop-cartridge-chef). In order to do this, you will need to obtain certain parameters from your chef server:
 
-
+* Organisation URL: This will be in the form of ``` https://EC2-Service-Extension-<extension-number>.<ADOP-public-IP>.xip.io/organizations/devops ```
+* SSH key (pem file) for the Chef server user: This can be obtained by accessing the user page from a URL such as ``` https://EC2-Service-Extension-<extension-number>.<ADOP-public-IP>.xip.io/users/admin ``` and then resetting the private key and taking note of it
+* SSH key (pem file) for the Chef server validator: This can be accessed by accessing the organisation URL from ``` https://EC2-Service-Extension-<extension-number>.<ADOP-public-IP>.xip.io/organizations/devops ``` and resetting the validation key by clicking on the cog next to your organisation
