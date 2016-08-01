@@ -1,4 +1,32 @@
 # AWS
+
+
+## Getting Started
+
+1. Ensure you create a user with the following cloud formation with the policy in: adop-chef-plat-extn.policy
+2. The user doesn't not need a username and password
+3. The user does need an API access key and secret access key.  Create / locate these.
+4. In the Jenkins instance within your ADOP stack navigate to the Platform Management folder
+5. Run the Load\_Platform\_Extension job passing in this repo's git URL and the AWS keys from above.
+6. The job should run through cleanly.
+
+For information on how to access the Chef server refer to the README.md file in the root of this repo.
+
+### Troubleshooting
+If the platform extension loading job fails with:
+```
+echo 'ERROR : Stack creation failed after 60 seconds. Please check the AWS console for more information.'
+```
+Check the Cloud Formation service in the AWS web console.  
+
+If you see the message:
+```
+In order to use this AWS Marketplace product you need to accept terms and subscribe.
+```
+You need to follow the link provided and create a nano machine (which you should promptly delete).  
+
+
+## General information about AWS platform extensions
 The AWS section can contain a single cloudformation template 'service.template', and a tokenisable Nginx configuration file, 'ec2-extension.conf', in order to provision the service.
 
 This skeleton cloudformation template provided will provision a single EC2-instance using a set of AWS-specific parameters provided to Jenkins as environment variables, upon spinning your instance of ADOP. The parameters are as follows:
@@ -21,10 +49,4 @@ The Nginx config file is tokenised with the outputs of the cloudformation templa
  
 It is recommended that you clone this repository and make additions and changes to the cloudformation template and Nginx config file as appropriate. *Do not remove any of the default parameters or outputs from the template as these are all used by the Load\_Platform\_Extension Jenkins job. Care needs to be taken when making significant changes to the template in order to ensure it is still compatible with the extension loader.*
 
-# Chef
-This platform extension spins up a blank Chef server with Chef 12 installed making use of the AWS-type platform extension. The EC2 instance makes use of an existing AMI which comes with all the configuration pre-baked.
 
-The chef server is proxied over port 443 from Nginx and is accessible over HTTPS. The default access credentials for the chef server web UI (once you have loaded the platform extension) are as follows:
-
- * username: admin
- * password: admin@1
