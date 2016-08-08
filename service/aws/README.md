@@ -48,5 +48,3 @@ The Nginx config file is tokenised with the outputs of the cloudformation templa
  * By default, ports 80, 22, 443 and 8080 have been opened up to VPC where you spin up your instance. The VPC CIDR block is provided to the cloudformation template as an input parameter and the security group rules use this parameter. In the case where you are accessing your instance through Nginx proxy, you will have to check the security groups for the host where Nginx resides.
  
 It is recommended that you clone this repository and make additions and changes to the cloudformation template and Nginx config file as appropriate. *Do not remove any of the default parameters or outputs from the template as these are all used by the Load\_Platform\_Extension Jenkins job. Care needs to be taken when making significant changes to the template in order to ensure it is still compatible with the extension loader.*
-
-
