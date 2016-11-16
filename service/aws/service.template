@@ -1,5 +1,5 @@
 {
-    "Description": "EC2 platform extension template for ADOP/B",
+    "Description": "Chef Server platform extension template for ADOP/B",
     "Mappings": {
         "RegionMap": {
             "eu-west-1": {
@@ -128,7 +128,8 @@
                         "DeviceName": "/dev/sda1",
                         "Ebs": {
                             "DeleteOnTermination": "true",
-                            "VolumeSize": 30
+                            "VolumeSize": 30,
+                            "VolumeType": "gp2"
                         }
                     }
                 ],
@@ -181,60 +182,58 @@
                     }
                 ],
                 "UserData": {
-                "Fn::Base64": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "#!/bin/bash\n",
-                    "export LOCAL_IPv4=$(curl http://instance-data/latest/meta-data/local-ipv4)\n",
-                    "yum -y install wget make \n",
-                    "yum -y install epel-release\n",
-                    "yum -y install python-pip\n",
-                    "pip install pystache\n",
-                    "pip install argparse\n",
-                    "pip install python-daemon\n",
-                    "cd /opt\n",
-                    "curl -O https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
-                    "tar -xvpf aws-cfn-bootstrap-latest.tar.gz\n",
-                    "cd aws-cfn-bootstrap-*\n",
-                    "python setup.py build\n",
-                    "python setup.py install\n",
-                    "cd /home/centos\n",
-                    "wget https://packages.chef.io/stable/el/7/chef-server-core-12.6.0-1.el7.x86_64.rpm\n",
-                    "yum -y install /home/centos/chef-server-core-12.6.0-1.el7.x86_64.rpm\n",
-                    "chef-server-ctl reconfigure\n",
-                    "chef-server-ctl user-create admin Admin User admin@example.com 'admin@1' --filename /home/centos/admin.pem\n",
-                    "chef-server-ctl org-create devops 'DevOps' --association_user admin --filename /home/centos/devops-validator.pem\n",
-                    "chef-server-ctl install chef-manage\n",
-                    "chef-server-ctl reconfigure\n",
-                    "chef-manage-ctl reconfigure --accept-license\n",
-                    "wget https://packages.chef.io/stable/el/6/opscode-push-jobs-server-1.1.6-1.x86_64.rpm\n",
-                    "yum -y install /home/centos/opscode-push-jobs-server-1.1.6-1.x86_64.rpm\n",
-                    "chef-server-ctl install opscode-push-jobs-server\n",
-                    "chef-server-ctl reconfigure\n",
-                    "opscode-push-jobs-server-ctl reconfigure\n",
-                    "chef-server-ctl install opscode-reporting\n",
-                    "chef-server-ctl reconfigure\n",
-                    "opscode-reporting-ctl reconfigure --accept-license\n",
-                    "chef-server-ctl reconfigure\n",
-                    "until [[ $(curl -I -s http://$LOCAL_IPv4|head -n 1|cut -d$' ' -f2) == 301 ]]; do echo \"Chef still not available, sleeping for 5s\"; sleep 5; done\n",
-                    "cfn-signal -e $? -r \"Stack setup complete\" '", { "Ref" : "ControllerHandle" }, "'\n"
-                  ]
-                ]
-                }
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "export LOCAL_IPv4=$(curl http://instance-data/latest/meta-data/local-ipv4)\n",
+                                "export CHEF_SERVER_VERSION=12.6.0-1.el7.x86_64\n",
+                                "export PUSH_JOBS_SERVER_VERSION=1.1.6-1.x86_64\n",
+                                "yum -y install wget epel-release\n",
+                                "cd /tmp\n",
+                                "wget https://packages.chef.io/stable/el/7/chef-server-core-$CHEF_SERVER_VERSION.rpm\n",
+                                "yum -y install /tmp/chef-server-core-$CHEF_SERVER_VERSION.rpm\n",
+                                "chef-server-ctl reconfigure\n",
+                                "chef-server-ctl user-create admin Admin User admin@example.com 'admin@1' --filename /home/centos/admin.pem\n",
+                                "chef-server-ctl org-create devops 'DevOps' --association_user admin --filename /home/centos/devops-validator.pem\n",
+                                "chef-server-ctl install chef-manage\n",
+                                "chef-server-ctl reconfigure\n",
+                                "chef-manage-ctl reconfigure --accept-license\n",
+                                "wget https://packages.chef.io/stable/el/6/opscode-push-jobs-server-$PUSH_JOBS_SERVER_VERSION.rpm\n",
+                                "yum -y install /tmp/opscode-push-jobs-server-$PUSH_JOBS_SERVER_VERSION.rpm\n",
+                                "chef-server-ctl install opscode-push-jobs-server\n",
+                                "chef-server-ctl reconfigure\n",
+                                "opscode-push-jobs-server-ctl reconfigure\n",
+                                "chef-server-ctl install opscode-reporting\n",
+                                "chef-server-ctl reconfigure\n",
+                                "opscode-reporting-ctl reconfigure --accept-license\n",
+                                "chef-server-ctl reconfigure\n",
+                                "until [[ $(curl -I -s http://$LOCAL_IPv4|head -n 1|cut -d$' ' -f2) == 301 ]]; do echo \"Chef still not available, sleeping for 5s\"; sleep 5; done\n",
+                                "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                                "\"Reason\" : \"Chef extension setup complete\",",
+                                "\"UniqueId\" : \"", {"Ref": "EnvironmentName"}, "\",",
+                                "\"Data\" : \"Done\"}' ",
+                                "\"", {"Ref": "ChefExtensionWaitConditionHandle"}, "\"\n",
+                                "\n"
+                            ]
+                        ]
+                    }
                 }
             },
             "Type": "AWS::EC2::Instance"
         },
-        "ControllerHandle" : {
-            "Type" : "AWS::CloudFormation::WaitConditionHandle"
-            },
-        "ControllerCondition" : {
-            "Type" : "AWS::CloudFormation::WaitCondition",
-            "DependsOn" : "EC2Instance",
-            "Properties" : {
-                "Handle" : { "Ref" : "ControllerHandle" },
-                "Timeout" : "1800"
+        "ChefExtensionWaitConditionHandle": {
+            "Type": "AWS::CloudFormation::WaitConditionHandle"
+        },
+        "ChefExtensionWaitCondition": {
+            "Type": "AWS::CloudFormation::WaitCondition",
+            "DependsOn": "EC2Instance",
+            "Properties": {
+                "Handle": {
+                    "Ref": "ChefExtensionWaitConditionHandle"
+                },
+                "Timeout": "1800"
             }
         }
     }
